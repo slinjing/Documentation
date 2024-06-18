@@ -1,0 +1,43 @@
+#depends_on配合健康检查healthcheck实现容器启动顺序编排
+version: "3"
+services:
+  redis:
+    image: 'redis:6.2.4'
+    restart: "always"
+    hostname: "redis"
+    ports:
+      - "6389:6379"
+    privileged: true
+    environment:
+      - TZ=Asia/Shanghai
+      - appendonly=yes
+      - cluster-enabled=yes
+    networks: 
+      test_net:
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  mongodb:
+    hostname: mongodb
+    container_name: mongodb
+    image: mongo:latest
+    depends_on:
+      redis:
+        condition: service_healthy    
+    ports:
+      - "27017:27017"
+    restart: "always"
+    command:
+      - "--auth"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=goDozaVqq4K3
+    networks: 
+      test_net:
+
+networks:
+  test_net:

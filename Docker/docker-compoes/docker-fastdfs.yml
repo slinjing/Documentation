@@ -1,0 +1,47 @@
+version: "3"
+services:
+  tracker:
+    image: 'season/fastdfs'
+    restart: "always"
+    hostname: "tracker"
+    container_name: "tracker"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - "/data/fastdfs/tracker/data:/fastdfs/tracker/data"
+    ports:
+      - "22122:22122"
+    command: "tracker"
+
+  storage:
+    image: 'season/fastdfs'
+    restart: "always"
+    hostname: "storage"
+    container_name: "storage"
+    links:
+      - tracker
+    environment:
+      - TZ=Asia/Shanghai
+      - TRACKER_SERVER=tracker:22122
+      - GROUP_NAME=group0
+    volumes:
+      - "/data/fastdfs/storage/data:/fastdfs/storage/data"
+      - "/data/fastdfs/storage/storepath:/fastdfs/store_path"
+    ports:
+      - "23000:23000"
+    command: "storage"
+
+  nginx:
+    image: 'season/fastdfs'
+    container_name: "fdfs-nginx"
+    restart: "always"
+    volumes:
+      - "/home/rcpdc/nginx.conf:/etc/nginx/conf/nginx.conf"
+      - "/data/fastdfs/storage/storepath:/fastdfs/store_path"
+    links:
+      - tracker
+    ports:
+      - "8088:8088"
+    environment:
+      TRACKER_SERVER: "tracker:22122"
+    command: "nginx"

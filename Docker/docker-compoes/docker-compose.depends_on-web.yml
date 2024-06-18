@@ -1,0 +1,42 @@
+#depends_on配合健康检查healthcheck实现容器启动顺序编排
+version: '3.3'
+services:
+  nginx:
+    image: nginx
+    restart: always
+    hostname: nginx
+    container_name: nginx
+#    privileged: true
+    ports:
+      - 9200:80
+      - 9443:443      
+    networks: 
+      test_net:
+    healthcheck:
+      #使用容器内部端口测试
+      test: ["CMD-SHELL", "curl -sS 'http://localhost:80' || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  mongodb:
+    hostname: mongodb
+    container_name: mongodb
+    image: mongo:latest
+    depends_on:
+      nginx:
+        condition: service_healthy    
+    ports:
+      - "27017:27017"
+    restart: "always"
+    command:
+      - "--auth"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=goDozaVqq4K3
+    networks: 
+      test_net:
+
+networks:
+  test_net:

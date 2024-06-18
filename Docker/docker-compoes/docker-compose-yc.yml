@@ -1,0 +1,285 @@
+version: '3'
+services:
+  nacos:
+    image: dockerhub.gt.com/library/nacos
+    restart: on-failure:3
+    hostname: "nacos"
+    container_name: "nacos"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - SPRING_DATASOURCE_PLATFORM=mysql
+      - MYSQL_SERVICE_HOST=$MYSQL_SERVICE_HOST
+      - MYSQL_SERVICE_DB_NAME=$MYSQL_SERVICE_DB_NAME
+      - MYSQL_SERVICE_USER=$MYSQL_SERVICE_USER
+      - MYSQL_SERVICE_PASSWORD=$MYSQL_SERVICE_PASSWORD
+      - MODE=$MODE
+      - MYSQL_SERVICE_DB_PARAM=allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&autoReconnect=true
+      - JAVA_OPTS=-server -Xmx2g -Xms2g -Xmn1g -XX:SurvivorRatio=4 -XX:MetaspaceSize=128M -XX:MaxMetaspaceSize=128M -XX:ReservedCodeCacheSize=128M -XX:MaxDirectMemorySize=1g -XX:+StartAttachListener
+    ports:
+     - "$NACOS_PORT_HTTP:8848"
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sS 127.0.0.1:8848 || exit 1']
+      interval: 1m30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  sso-api:
+    image: dockerhub.gt.com/test/rcpdc/sso-api:$SSO_API_VERSION
+    restart: on-failure:3
+    hostname: "sso-api"
+    container_name: "sso-api"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - NACOS_META=$NACOS_META
+      - ip=$SSO_API_IP
+      - port=$SSO_API_PORT_HTTP
+      - JAVA_OPTS=-server -Xmx2g -Xms2g -Xmn1g -XX:SurvivorRatio=4 -XX:MetaspaceSize=128M -XX:MaxMetaspaceSize=128M -XX:ReservedCodeCacheSize=128M -XX:MaxDirectMemorySize=1g -XX:+StartAttachListener
+    ports:
+      - "$SSO_API_PORT_HTTP:80"
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sS 127.0.0.1:20021 || exit 1']
+      interval: 1m30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  sso-web:
+    image: dockerhub.gt.com/test/rcpdc/sso-web:$SSO_WEB_VERSION
+    restart: on-failure:3
+    hostname: "sso-web"
+    container_name: "sso-web"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - $SSO_API_IP=$SSO_API_PORT_HTTP
+    ports:
+      - "$SSO_WEB_PORT_HTTP:80"
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+
+  dc-api:
+    image: dockerhub.gt.com/test/rcpdc/dc-api:$DC_API_VERSION
+    restart: on-failure:3
+    hostname: "dc-api"
+    container_name: "dc-api"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - NACOS_META=$NACOS_META
+      - ip=$DC_API_IP
+      - port=$DC_API_PORT_HTTP
+      - JAVA_OPTS=-server -Xmx6g -Xms6g -Xmn3g -XX:SurvivorRatio=4 -XX:MetaspaceSize=512M -XX:MaxMetaspaceSize=512M -XX:ReservedCodeCacheSize=512M -XX:MaxDirectMemorySize=3g -XX:+StartAttachListener
+    ports:
+      - "$DC_API_PORT_HTTP:80"
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sso-api:
+        condition: service_healthy
+
+  dc-repeat:
+    image: dockerhub.gt.com/test/rcpdc/dc-repeat:$DC_MSG_VERSION
+    restart: on-failure:3
+    hostname: "dc-repeat"
+    container_name: "dc-repeat"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - NACOS_META=$NACOS_META
+      - ip=$DC_MSG_IP
+      - port=$DC_MSG_PORT_HTTP
+      - JAVA_OPTS=-server -Xmx2g -Xms2g -Xmn1g -XX:SurvivorRatio=4 -XX:MetaspaceSize=128M -XX:MaxMetaspaceSize=128M -XX:ReservedCodeCacheSize=128M -XX:MaxDirectMemorySize=1g -XX:+StartAttachListener
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sso-api:
+        condition: service_healthy
+
+  dc-msg:
+    image: dockerhub.gt.com/test/rcpdc/dc-msg:$DC_MSG_VERSION
+    restart: on-failure:3
+    hostname: "dc-msg"
+    container_name: "dc-msg"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - NACOS_META=$NACOS_META
+      - ip=$DC_MSG_IP
+      - port=$DC_MSG_PORT_HTTP
+      - JAVA_OPTS=-server -Xmx2g -Xms2g -Xmn1g -XX:SurvivorRatio=4 -XX:MetaspaceSize=128M -XX:MaxMetaspaceSize=128M -XX:ReservedCodeCacheSize=128M -XX:MaxDirectMemorySize=1g -XX:+StartAttachListener
+    ports:
+      - "$DC_MSG_PORT_HTTP:80"
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sso-api:
+        condition: service_healthy
+
+  data-parser:
+    image: dockerhub.gt.com/test/rcpdc/data-parser:$DATA_PARSER_VERSION
+    restart: on-failure:3
+    hostname: "data-parser"
+    container_name: "data-parser"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - NACOS_META=$NACOS_META
+      - JAVA_OPTS=-server -Xmx4g -Xms4g -Xmn2g -XX:SurvivorRatio=4 -XX:MetaspaceSize=256M -XX:MaxMetaspaceSize=256M -XX:ReservedCodeCacheSize=256M -XX:MaxDirectMemorySize=2g -XX:+StartAttachListener
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sso-api:
+        condition: service_healthy
+
+  live:
+    image: dockerhub.gt.com/test/rcpdc/live:$LIVE_VERSION
+    restart: on-failure:3
+    hostname: "live"
+    container_name: "live"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - NACOS_META=$NACOS_META
+      - ip=$LIVE_IP
+      - port=$LIVE_PORT_HTTP
+      - JAVA_OPTS=-server -Xmx4g -Xms4g -Xmn2g -XX:SurvivorRatio=4 -XX:MetaspaceSize=256M -XX:MaxMetaspaceSize=256M -XX:ReservedCodeCacheSize=256M -XX:MaxDirectMemorySize=2g -XX:+StartAttachListener
+    ports:
+      - "$LIVE_PORT_HTTP:80"
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sso-api:
+        condition: service_healthy
+
+  gateway:
+    image: dockerhub.gt.com/test/rcpdc/gateway:$GATEWAY_VERSION
+    restart: on-failure:3
+    hostname: "gateway"
+    container_name: "gateway"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - NACOS_META=$NACOS_META
+      - JAVA_OPTS=-server -Xmx2g -Xms2g -Xmn1g -XX:SurvivorRatio=4 -XX:MetaspaceSize=128M -XX:MaxMetaspaceSize=128M -XX:ReservedCodeCacheSize=128M -XX:MaxDirectMemorySize=1g -XX:+StartAttachListener
+    ports:
+      - "$GATEWAY_PORT_HTTP:80"
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sso-api:
+        condition: service_healthy
+
+  dc-web:
+    image: dockerhub.gt.com/test/rcpdc/dc-web:$DC_WEB_VERSION
+    restart: on-failure:3
+    hostname: "dc-web"
+    container_name: "dc-web"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - URL_GATEWAY=$GATEWAY_IP:$GATEWAY_PORT_HTTP
+      - URL_DFS=$URL_DFS
+      - URL_LIVE=$LIVE_IP:$LIVE_PORT_HTTP
+    ports:
+     - "$DC_WEB_PORT_HTTP:80"
+     - "$DC_WEB_PORT_HTTPS:443"
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sso-api:
+        condition: service_healthy
+
+  data-discovery:
+    image: dockerhub.gt.com/test/rcpdc/data-discovery:$DATA_DISCOVERY_VERSION
+    restart: on-failure:3
+    hostname: "data-discovery"
+    container_name: "data-discovery"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "1"
+    environment:
+      - NACOS_META=$NACOS_META
+      - JAVA_OPTS=-server -Xmx2g -Xms2g -Xmn1g -XX:SurvivorRatio=4 -XX:MetaspaceSize=128M -XX:MaxMetaspaceSize=128M -XX:ReservedCodeCacheSize=128M -XX:MaxDirectMemorySize=1g -XX:+StartAttachListener
+    volumes:
+      - $DATA_RECEIVER_DISCOVERY_PATH:$DATA_DISCOVERY_WORK_PATH
+    networks:
+      rcpdc_br0:
+        ipv4_address: 172.173.40.100
+    depends_on:
+      nacos:
+        condition: service_healthy
+      sso-api:
+        condition: service_healthy
+        
+networks:
+    rcpdc_br0:
+       external: true
